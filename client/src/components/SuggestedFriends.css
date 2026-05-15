@@ -1,0 +1,135 @@
+.suggestions-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 24px;
+}
+
+.suggestions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #c4b5fd;
+}
+
+.suggestions-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  background: linear-gradient(135deg, #c4b5fd, #f0abfc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.suggestion-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.suggestion-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.suggestion-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.suggestion-avatar-ph {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.suggestion-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #e2e8f0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-meta {
+  font-size: 12px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
+}
+
+.suggestion-add-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.suggestion-add-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+}
+
+.suggestion-sent {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(234, 179, 8, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Light mode */
+[data-theme="light"] .suggestions-card {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .suggestion-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
