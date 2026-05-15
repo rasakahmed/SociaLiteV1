@@ -12,6 +12,7 @@ import SearchPage from './pages/SearchPage';
 import NotificationsPage from './pages/NotificationsPage';
 import FriendsPage from './pages/FriendsPage';
 import './App.css';
+// updated
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
