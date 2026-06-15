@@ -41,11 +41,34 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(500),
     allowNull: true,
   },
+  is_private: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  notifications_enabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  },
+  public_key: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+  },
+  last_active: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'users',
   hooks: {
     beforeCreate: async (user) => {
       if (user.password_hash) {
+        user.password_hash = await bcrypt.hash(user.password_hash, 12);
+      }
+    },
+    beforeUpdate: async (user) => {
+      if (user.changed('password_hash')) {
         user.password_hash = await bcrypt.hash(user.password_hash, 12);
       }
     },
