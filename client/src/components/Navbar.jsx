@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Bell, User, LogOut, Menu, X, Search, Sun, Moon, ShieldAlert } from 'lucide-react';
+import { Home, Users, Bell, User, LogOut, Menu, X, Search, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { notificationsAPI } from '../services/api';
-import BlockedUsersModal from './BlockedUsersModal';
+import { notificationsAPI, friendsAPI } from '../services/api';
 import './Navbar.css';
 
 const API_URL = 'http://localhost:5000';
@@ -13,16 +11,18 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, toggleTheme } = useTheme();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [friendReqCount, setFriendReqCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showBlockedModal, setShowBlockedModal] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const fetchUnread = () => {
       notificationsAPI.getUnreadCount()
         .then((res) => setUnreadCount(res.data.unreadCount))
+        .catch(() => {});
+      friendsAPI.getRequests()
+        .then((res) => setFriendReqCount(res.data.requests?.length || 0))
         .catch(() => {});
     };
     fetchUnread();
@@ -42,13 +42,13 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <Link to="/" className="navbar-brand">
+        <Link to="/feed" className="navbar-brand">
           <div className="brand-icon">S</div>
-          <span className="brand-text">Socialite</span>
+          <span className="brand-text">SociaLite</span>
         </Link>
 
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-          <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+          <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <Home size={20} />
             <span>Feed</span>
           </Link>
@@ -57,8 +57,15 @@ export default function Navbar() {
             <span>Search</span>
           </Link>
           <Link to="/friends" className={`nav-link ${isActive('/friends') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
-            <Users size={20} />
+            <div className="notification-icon-wrapper">
+              <Users size={20} />
+              {friendReqCount > 0 && <span className="notification-badge">{friendReqCount > 9 ? '9+' : friendReqCount}</span>}
+            </div>
             <span>Friends</span>
+          </Link>
+          <Link to="/messages" className={`nav-link ${isActive('/messages') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+            <MessageCircle size={20} />
+            <span>Messages</span>
           </Link>
           <Link to="/notifications" className={`nav-link ${isActive('/notifications') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <div className="notification-icon-wrapper">
@@ -67,7 +74,7 @@ export default function Navbar() {
             </div>
             <span>Alerts</span>
           </Link>
-          <Link to={`/profile/${user.id}`} className={`nav-link ${location.pathname.startsWith('/profile') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+          <Link to={`/@${user.username}`} className={`nav-link ${location.pathname.startsWith('/@') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             {user.avatar_url ? (
               <img src={`${API_URL}${user.avatar_url}`} alt="" className="nav-avatar" />
             ) : (
@@ -75,16 +82,6 @@ export default function Navbar() {
             )}
             <span>Profile</span>
           </Link>
-
-          <button className="nav-link theme-toggle-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </button>
-
-          <button className="nav-link" onClick={() => { setShowBlockedModal(true); setMenuOpen(false); }}>
-            <ShieldAlert size={20} />
-            <span>Blocks</span>
-          </button>
 
           <button className="nav-link logout-btn" onClick={handleLogout}>
             <LogOut size={20} />
@@ -96,10 +93,6 @@ export default function Navbar() {
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
-
-      {showBlockedModal && (
-        <BlockedUsersModal onClose={() => setShowBlockedModal(false)} />
-      )}
     </nav>
   );
 }
