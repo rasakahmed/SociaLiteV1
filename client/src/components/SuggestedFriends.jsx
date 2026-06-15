@@ -67,7 +67,7 @@ export default function SuggestedFriends() {
       <div className="suggestions-list">
         {suggestions.slice(0, 5).map((user) => (
           <div key={user.id} className="suggestion-item">
-            <Link to={`/profile/${user.id}`} className="suggestion-link">
+            <Link to={`/@${user.username}`} className="suggestion-link">
               {user.avatar_url ? (
                 <>
                   <img src={`${API_URL}${user.avatar_url}`} alt="" className="suggestion-avatar" onError={(e)=>{e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='flex';}} />
