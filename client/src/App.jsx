@@ -11,8 +11,8 @@ import ProfilePage from './pages/ProfilePage';
 import SearchPage from './pages/SearchPage';
 import NotificationsPage from './pages/NotificationsPage';
 import FriendsPage from './pages/FriendsPage';
+import MessagesPage from './pages/MessagesPage';
 import './App.css';
-// updated
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -40,12 +40,17 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-        <Route path="/" element={<PrivateRoute><FeedPage /></PrivateRoute>} />
-        <Route path="/profile/:id" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/feed" element={<PrivateRoute><FeedPage /></PrivateRoute>} />
+        <Route path="/" element={<Navigate to="/feed" />} />
         <Route path="/search" element={<PrivateRoute><SearchPage /></PrivateRoute>} />
         <Route path="/notifications" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
         <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+        
+        {/* Profile catching route must be last before catch-all */}
+        <Route path="/:handle" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        
+        <Route path="*" element={<Navigate to="/feed" />} />
       </Routes>
       <ToastContainer />
     </>
