@@ -1,16 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Camera, Edit3, Save, X, UserPlus, UserCheck, Clock, UserX, Loader, ShieldAlert, Trash2 } from 'lucide-react';
+import { Camera, Edit3, Save, X, UserPlus, UserCheck, Clock, UserX, Loader, ShieldAlert, Trash2, Settings, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usersAPI, postsAPI, friendsAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import PostCard from '../components/PostCard';
+import SettingsModal from '../components/SettingsModal';
 import './ProfilePage.css';
 
 const API_URL = 'http://localhost:5000';
 
+const isUserActive = (lastActive) => {
+  if (!lastActive) return false;
+  const last = new Date(lastActive).getTime();
+  const now = new Date().getTime();
+  return (now - last) <= 5 * 60 * 1000;
+};
+
 export default function ProfilePage() {
-  const { id } = useParams();
+  const { handle } = useParams();
+  const username = handle?.startsWith('@') ? handle.slice(1) : handle;
   const { user: currentUser, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -20,27 +29,32 @@ export default function ProfilePage() {
   const [friendStatus, setFriendStatus] = useState({ status: 'none', requestId: null, isSender: false });
   const [actionLoading, setActionLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef(null);
-  const isOwn = currentUser?.id === parseInt(id);
+  const isOwn = currentUser?.username === username;
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [profileRes, postsRes] = await Promise.all([
-          usersAPI.getProfile(id),
-          postsAPI.getByUser(id),
-        ]);
-        setProfile(profileRes.data.user);
+        // Fetch profile by username
+        const profileRes = await usersAPI.getProfile(username);
+        const profileData = profileRes.data.user;
+        setProfile(profileData);
+
+        // Use numeric ID for posts + friend status
+        const postsRes = await postsAPI.getByUser(profileData.id);
         setPosts(postsRes.data.posts);
+        setIsPrivateProfile(!!postsRes.data.isPrivate);
         setEditForm({
-          display_name: profileRes.data.user.display_name || '',
-          bio: profileRes.data.user.bio || '',
+          display_name: profileData.display_name || '',
+          bio: profileData.bio || '',
         });
 
-        if (!isOwn) {
-          const statusRes = await friendsAPI.getStatus(id);
+        if (currentUser?.username !== username) {
+          const statusRes = await friendsAPI.getStatus(profileData.id);
           setFriendStatus(statusRes.data);
         }
       } catch (err) {
@@ -50,7 +64,7 @@ export default function ProfilePage() {
       }
     };
     fetchData();
-  }, [id, isOwn]);
+  }, [username, currentUser]);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
@@ -81,7 +95,7 @@ export default function ProfilePage() {
     setActionLoading(true);
     try {
       if (action === 'send') {
-        await friendsAPI.sendRequest(id);
+        await friendsAPI.sendRequest(profile.id);
         setFriendStatus({ status: 'pending', isSender: true });
       } else if (action === 'accept') {
         await friendsAPI.accept(friendStatus.requestId);
@@ -102,7 +116,7 @@ export default function ProfilePage() {
     if (!window.confirm('Are you sure you want to unfriend this user?')) return;
     setActionLoading(true);
     try {
-      await friendsAPI.removeFriend(id);
+      await friendsAPI.removeFriend(profile.id);
       setFriendStatus({ status: 'none', requestId: null, isSender: false });
       setProfile((prev) => ({ ...prev, friendCount: prev.friendCount - 1 }));
       toast.success('Unfriended successfully');
@@ -117,7 +131,7 @@ export default function ProfilePage() {
     if (!profile.isBlocked) {
       if (!window.confirm('Are you sure you want to block this user? They will not be able to interact with you.')) return;
       try {
-        await usersAPI.block(id);
+        await usersAPI.block(profile.id);
         toast.success('User blocked');
         setProfile((prev) => ({ ...prev, isBlocked: true }));
       } catch (err) {
@@ -125,7 +139,7 @@ export default function ProfilePage() {
       }
     } else {
       try {
-        await usersAPI.unblock(id);
+        await usersAPI.unblock(profile.id);
         toast.success('User unblocked');
         setProfile((prev) => ({ ...prev, isBlocked: false }));
       } catch (err) {
@@ -214,6 +228,9 @@ export default function ProfilePage() {
                   {(profile.display_name || profile.username)[0].toUpperCase()}
                 </div>
               )}
+              {!isOwn && (
+                <div className={`avatar-active-badge ${isUserActive(profile.last_active) ? 'online' : 'offline'}`} title={isUserActive(profile.last_active) ? "Online" : "Offline"}></div>
+              )}
               {isOwn && (
                 <>
                   <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} className="file-input-hidden" />
@@ -252,7 +269,9 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="profile-name">{profile.display_name || profile.username}</h1>
+                  <h1 className="profile-name">
+                    {profile.display_name || profile.username}
+                  </h1>
                   <p className="profile-username">@{profile.username}</p>
                   {profile.bio && <p className="profile-bio">{profile.bio}</p>}
 
@@ -272,9 +291,14 @@ export default function ProfilePage() {
 
             <div className="profile-actions">
               {isOwn && !editing && (
-                <button className="edit-profile-btn" onClick={() => setEditing(true)}>
-                  <Edit3 size={16} /><span>Edit</span>
-                </button>
+                <div className="profile-owner-actions">
+                  <button className="edit-profile-btn" onClick={() => setEditing(true)}>
+                    <Edit3 size={16} /><span>Edit</span>
+                  </button>
+                  <button className="edit-profile-btn" onClick={() => setShowSettings(true)}>
+                    <Settings size={16} /><span>Settings</span>
+                  </button>
+                </div>
               )}
               {!profile.isBlocked && renderFriendButton()}
               {!isOwn && (
@@ -299,6 +323,12 @@ export default function ProfilePage() {
             <div className="profile-no-posts">
               <p>You have blocked this user.</p>
             </div>
+          ) : isPrivateProfile && !isOwn ? (
+            <div className="profile-no-posts">
+              <Lock size={24} style={{ marginBottom: '8px', opacity: 0.4 }} />
+              <p>This account is private</p>
+              <p style={{ fontSize: '13px', marginTop: '4px', opacity: 0.5 }}>Add this user as a friend to see their posts.</p>
+            </div>
           ) : posts.length === 0 ? (
             <div className="profile-no-posts">
               <p>No posts yet.</p>
@@ -314,6 +344,14 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {showSettings && (
+        <SettingsModal 
+          onClose={() => setShowSettings(false)} 
+          isPrivate={profile?.is_private || false}
+          onPrivateChange={(val) => setProfile(prev => ({ ...prev, is_private: val }))}
+        />
+      )}
     </div>
   );
 }
