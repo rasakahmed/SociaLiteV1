@@ -103,7 +103,7 @@ export default function SearchPage() {
               <div className="results-grid">
                 {results.map((user) => (
                   <div key={user.id} className="user-result-card">
-                    <Link to={`/profile/${user.id}`} className="user-result-link">
+                    <Link to={`/@${user.username}`} className="user-result-link">
                       {user.avatar_url ? (
                         <img src={`${API_URL}${user.avatar_url}`} alt="" className="result-avatar" />
                       ) : (
