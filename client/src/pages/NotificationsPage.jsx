@@ -86,7 +86,7 @@ export default function NotificationsPage() {
                   </div>
                   <div className="notif-content">
                     {n.fromUser && (
-                      <Link to={`/profile/${n.fromUser.id}`} className="notif-from">
+                      <Link to={`/@${n.fromUser.username}`} className="notif-from">
                         {n.fromUser.avatar_url ? (
                           <img src={`${API_URL}${n.fromUser.avatar_url}`} alt="" className="notif-avatar" />
                         ) : (
