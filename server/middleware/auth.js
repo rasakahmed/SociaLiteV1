@@ -16,6 +16,11 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token. User not found.' });
     }
 
+    // Update last_active asynchronously (fire and forget) to avoid blocking
+    if (!user.last_active || (new Date() - new Date(user.last_active)) > 60000) {
+      User.update({ last_active: new Date() }, { where: { id: user.id } }).catch(e => console.error(e));
+    }
+
     req.user = user;
     next();
   } catch (error) {
