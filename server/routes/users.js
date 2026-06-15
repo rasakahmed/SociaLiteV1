@@ -70,12 +70,21 @@ router.get('/blocked', auth, async (req, res) => {
   }
 });
 
-// GET /api/users/:id — public profile
-router.get('/:id', auth, async (req, res) => {
+// GET /api/users/:identifier — public profile (by id or username)
+router.get('/:identifier', auth, async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id, {
-      attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio', 'created_at'],
-    });
+    const param = req.params.identifier;
+    let user;
+    if (/^\d+$/.test(param)) {
+      user = await User.findByPk(param, {
+        attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio', 'created_at', 'is_private', 'last_active'],
+      });
+    } else {
+      user = await User.findOne({
+        where: { username: param },
+        attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio', 'created_at', 'is_private', 'last_active'],
+      });
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -95,17 +104,39 @@ router.get('/:id', auth, async (req, res) => {
       },
     });
 
-    // Check if blocked
+    // Check if blocked in either direction
     const blockRecord = await Block.findOne({
-      where: { blocker_id: req.user.id, blocked_id: user.id },
+      where: {
+        [Op.or]: [
+          { blocker_id: req.user.id, blocked_id: user.id },
+          { blocker_id: user.id, blocked_id: req.user.id },
+        ],
+      },
     });
+
+    if (blockRecord) {
+      if (blockRecord.blocker_id === user.id) {
+        return res.status(403).json({ error: 'You are blocked by this user.' });
+      } else {
+        // We blocked them, we return limited info with isBlocked
+        return res.json({
+          user: {
+            id: user.id,
+            username: user.username,
+            display_name: user.display_name,
+            avatar_url: user.avatar_url,
+            isBlocked: true,
+          },
+        });
+      }
+    }
 
     res.json({
       user: {
         ...user.toJSON(),
         postCount,
         friendCount,
-        isBlocked: !!blockRecord,
+        isBlocked: false,
       },
     });
   } catch (error) {
@@ -117,11 +148,13 @@ router.get('/:id', auth, async (req, res) => {
 // PUT /api/users/profile — update own profile
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { display_name, bio } = req.body;
+    const { display_name, bio, is_private, notifications_enabled } = req.body;
 
     const updates = {};
     if (display_name !== undefined) updates.display_name = display_name;
     if (bio !== undefined) updates.bio = bio;
+    if (is_private !== undefined) updates.is_private = is_private;
+    if (notifications_enabled !== undefined) updates.notifications_enabled = notifications_enabled;
 
     await req.user.update(updates);
 

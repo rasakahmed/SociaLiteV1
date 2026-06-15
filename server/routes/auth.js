@@ -121,4 +121,59 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// PUT /api/auth/change-password
+router.put(
+  '/change-password',
+  auth,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password required'),
+    body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      const isValid = await req.user.validatePassword(currentPassword);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+
+      req.user.password_hash = newPassword;
+      await req.user.save();
+
+      res.json({ message: 'Password changed successfully.' });
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({ error: 'Internal server error.' });
+    }
+  }
+);
+
+// DELETE /api/auth/delete-account
+router.delete('/delete-account', auth, async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password required to delete account.' });
+    }
+
+    const isValid = await req.user.validatePassword(password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect password.' });
+    }
+
+    await req.user.destroy();
+    res.json({ message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

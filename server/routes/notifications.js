@@ -78,6 +78,10 @@ router.put('/:id/read', auth, async (req, res) => {
 // GET /api/notifications/unread-count — quick poll endpoint
 router.get('/unread-count', auth, async (req, res) => {
   try {
+    // If user has notifications disabled, always return 0
+    if (!req.user.notifications_enabled) {
+      return res.json({ unreadCount: 0 });
+    }
     const count = await Notification.count({
       where: { user_id: req.user.id, is_read: false },
     });

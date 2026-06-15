@@ -3,9 +3,33 @@ const { body, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
-const { Post, User, Comment, Like, FriendRequest, Report, Block } = require('../models');
+const path = require('path');
+const fs = require('fs');
+const { Post, PostMedia, User, Comment, Like, FriendRequest, Report, Block } = require('../models');
 
 const router = express.Router();
+
+// GET /api/posts/:id/stats (Real-time polling for post stats)
+router.get('/:id/stats', auth, async (req, res) => {
+  try {
+    const post = await Post.findByPk(req.params.id, {
+      include: [
+        { model: Like, as: 'likes' },
+        { model: Comment, as: 'comments' }
+      ]
+    });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    
+    const likeCount = post.likes ? post.likes.length : 0;
+    const isLiked = post.likes ? post.likes.some(l => l.user_id === req.user.id) : false;
+    const commentCount = post.comments ? post.comments.length : 0;
+
+    res.json({ likeCount, isLiked, commentCount });
+  } catch (error) {
+    console.error('Fetch post stats error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
 
 // GET /api/posts/feed — paginated feed of friends' + own posts
 router.get('/feed', auth, async (req, res) => {
@@ -55,6 +79,7 @@ router.get('/feed', auth, async (req, res) => {
           order: [['created_at', 'ASC']],
         },
         { model: Like, as: 'likes' },
+        { model: PostMedia, as: 'media', order: [['display_order', 'ASC']] },
       ],
       order: [['created_at', 'DESC']],
       limit,
@@ -87,11 +112,11 @@ router.get('/feed', auth, async (req, res) => {
   }
 });
 
-// POST /api/posts — create post (text + optional image)
+// POST /api/posts — create post (text + optional media)
 router.post(
   '/',
   auth,
-  upload.single('image'),
+  upload.array('media', 10),
   [body('content').optional({ nullable: true }).trim()],
   async (req, res) => {
     try {
@@ -99,8 +124,9 @@ router.post(
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-      if (!req.body.content && !req.file) {
-        return res.status(400).json({ error: 'Post must contain either text or an image.' });
+      const files = req.files || [];
+      if (!req.body.content && files.length === 0) {
+        return res.status(400).json({ error: 'Post must contain either text or media.' });
       }
 
       const postData = {
@@ -108,15 +134,29 @@ router.post(
         content: req.body.content || null,
       };
 
-      if (req.file) {
-        postData.image_url = `/uploads/${req.file.filename}`;
+      // Backward compat: set image_url to first image if present
+      const firstImage = files.find(f => f.mimetype.startsWith('image/'));
+      if (firstImage) {
+        postData.image_url = `/uploads/${firstImage.filename}`;
       }
 
       const post = await Post.create(postData);
 
+      // Create PostMedia entries for all files
+      if (files.length > 0) {
+        const mediaEntries = files.map((file, index) => ({
+          post_id: post.id,
+          media_url: `/uploads/${file.filename}`,
+          media_type: file.mimetype.startsWith('video/') ? 'video' : 'image',
+          display_order: index,
+        }));
+        await PostMedia.bulkCreate(mediaEntries);
+      }
+
       const fullPost = await Post.findByPk(post.id, {
         include: [
           { model: User, as: 'author', attributes: ['id', 'username', 'display_name', 'avatar_url'] },
+          { model: PostMedia, as: 'media', order: [['display_order', 'ASC']] },
         ],
       });
 
@@ -148,6 +188,7 @@ router.get('/:id', auth, async (req, res) => {
           order: [['created_at', 'ASC']],
         },
         { model: Like, as: 'likes' },
+        { model: PostMedia, as: 'media', order: [['display_order', 'ASC']] },
       ],
     });
 
@@ -190,6 +231,32 @@ router.delete('/:id', auth, async (req, res) => {
 // GET /api/posts/user/:userId — get posts by a specific user
 router.get('/user/:userId', auth, async (req, res) => {
   try {
+    const targetUserId = parseInt(req.params.userId);
+
+    // Private profile check
+    if (targetUserId !== req.user.id) {
+      const targetUser = await User.findByPk(targetUserId);
+      if (targetUser && targetUser.is_private) {
+        // Check if they are friends
+        const friendship = await FriendRequest.findOne({
+          where: {
+            status: 'accepted',
+            [Op.or]: [
+              { sender_id: req.user.id, receiver_id: targetUserId },
+              { sender_id: targetUserId, receiver_id: req.user.id },
+            ],
+          },
+        });
+        if (!friendship) {
+          return res.json({
+            posts: [],
+            pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+            isPrivate: true,
+          });
+        }
+      }
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -203,6 +270,7 @@ router.get('/user/:userId', auth, async (req, res) => {
           include: [{ model: User, as: 'author', attributes: ['id', 'username', 'display_name', 'avatar_url'] }],
         },
         { model: Like, as: 'likes' },
+        { model: PostMedia, as: 'media', order: [['display_order', 'ASC']] },
       ],
       order: [['created_at', 'DESC']],
       limit,
@@ -238,6 +306,7 @@ router.get('/user/:userId', auth, async (req, res) => {
 router.put(
   '/:id',
   auth,
+  upload.array('media', 10),
   [body('content').optional({ nullable: true }).trim()],
   async (req, res) => {
     try {
@@ -246,12 +315,55 @@ router.put(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const post = await Post.findByPk(req.params.id);
+      const post = await Post.findByPk(req.params.id, {
+        include: [{ model: PostMedia, as: 'media' }]
+      });
       if (!post) return res.status(404).json({ error: 'Post not found.' });
       if (post.user_id !== req.user.id) return res.status(403).json({ error: 'Not authorized to edit this post.' });
 
-      if (!req.body.content && !post.image_url) {
-        return res.status(400).json({ error: 'Post must contain either text or an image.' });
+      // Identify which existing media URLs were kept
+      let keptMediaUrls = [];
+      if (req.body.existingMediaUrls) {
+        if (Array.isArray(req.body.existingMediaUrls)) {
+          keptMediaUrls = req.body.existingMediaUrls;
+        } else {
+          keptMediaUrls = [req.body.existingMediaUrls];
+        }
+      }
+
+      // Delete removed media
+      const mediaToDelete = post.media.filter(m => !keptMediaUrls.includes(m.media_url));
+      for (const m of mediaToDelete) {
+        const filePath = path.join(__dirname, '..', m.media_url);
+        fs.unlink(filePath, (err) => {
+          if (err) console.error(`Failed to delete media ${filePath}:`, err);
+        });
+        await m.destroy();
+      }
+
+      // Track display order offset
+      let displayOrder = keptMediaUrls.length;
+
+      // Add new media
+      if (req.files && req.files.length > 0) {
+        const mediaRecords = req.files.map((file, index) => {
+          const isVideo = file.mimetype.startsWith('video/');
+          return {
+            post_id: post.id,
+            media_url: `/uploads/${file.filename}`,
+            media_type: isVideo ? 'video' : 'image',
+            display_order: displayOrder + index,
+          };
+        });
+        await PostMedia.bulkCreate(mediaRecords);
+      }
+
+      const hasKeptMedia = keptMediaUrls.length > 0;
+      const hasNewMedia = req.files && req.files.length > 0;
+      const hasCaption = req.body.content && req.body.content.trim().length > 0;
+
+      if (!hasCaption && !post.image_url && !hasKeptMedia && !hasNewMedia) {
+        return res.status(400).json({ error: 'Post must contain either text or media.' });
       }
 
       const filtered = req.body.content ? filterProfanity(req.body.content) : null;
@@ -265,6 +377,7 @@ router.put(
             include: [{ model: User, as: 'author', attributes: ['id', 'username', 'display_name', 'avatar_url'] }],
           },
           { model: Like, as: 'likes' },
+          { model: PostMedia, as: 'media', order: [['display_order', 'ASC']] },
         ],
       });
 

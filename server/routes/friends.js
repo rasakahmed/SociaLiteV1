@@ -20,6 +20,20 @@ router.post('/request/:userId', auth, async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    // Check if a block exists in either direction
+    const blockExists = await Block.findOne({
+      where: {
+        [Op.or]: [
+          { blocker_id: req.user.id, blocked_id: receiverId },
+          { blocker_id: receiverId, blocked_id: req.user.id },
+        ],
+      },
+    });
+
+    if (blockExists) {
+      return res.status(403).json({ error: 'Cannot send friend request.' });
+    }
+
     // Check if request already exists (in either direction)
     const existing = await FriendRequest.findOne({
       where: {
@@ -144,8 +158,8 @@ router.get('/', auth, async (req, res) => {
         ],
       },
       include: [
-        { model: User, as: 'sender', attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio'] },
-        { model: User, as: 'receiver', attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio'] },
+        { model: User, as: 'sender', attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio', 'public_key', 'last_active'] },
+        { model: User, as: 'receiver', attributes: ['id', 'username', 'display_name', 'avatar_url', 'bio', 'public_key', 'last_active'] },
       ],
     });
 

@@ -134,6 +134,48 @@ router.post(
   }
 );
 
+// PUT /api/comments/:id
+router.put(
+  '/:id',
+  auth,
+  [body('content').trim().notEmpty().withMessage('Comment content is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const comment = await Comment.findByPk(req.params.id);
+      if (!comment) {
+        return res.status(404).json({ error: 'Comment not found.' });
+      }
+      if (comment.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to edit this comment.' });
+      }
+
+      await comment.update({ content: req.body.content });
+
+      const fullComment = await Comment.findByPk(comment.id, {
+        include: [
+          { model: User, as: 'author', attributes: ['id', 'username', 'display_name', 'avatar_url'] },
+          { model: CommentLike, as: 'likes' },
+        ],
+      });
+      
+      const cJson = fullComment.toJSON();
+      cJson.likeCount = cJson.likes ? cJson.likes.length : 0;
+      cJson.isLiked = cJson.likes ? cJson.likes.some(l => l.user_id === req.user.id) : false;
+      delete cJson.likes;
+
+      res.json({ comment: cJson });
+    } catch (error) {
+      console.error('Edit comment error:', error);
+      res.status(500).json({ error: 'Internal server error.' });
+    }
+  }
+);
+
 // DELETE /api/comments/:id
 router.delete('/:id', auth, async (req, res) => {
   try {
