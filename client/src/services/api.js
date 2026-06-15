@@ -33,6 +33,8 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
+  changePassword: (currentPassword, newPassword) => api.put('/auth/change-password', { currentPassword, newPassword }),
+  deleteAccount: (password) => api.delete('/auth/delete-account', { data: { password } }),
 };
 
 // Posts
@@ -42,9 +44,12 @@ export const postsAPI = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   getById: (id) => api.get(`/posts/${id}`),
+  getStats: (id) => api.get(`/posts/${id}/stats`),
   delete: (id) => api.delete(`/posts/${id}`),
   getByUser: (userId, page = 1) => api.get(`/posts/user/${userId}?page=${page}`),
-  edit: (id, content) => api.put(`/posts/${id}`, { content }),
+  edit: (id, formData) => api.put(`/posts/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   report: (id, reason, description) => api.post(`/posts/${id}/report`, { reason, description }),
 };
 
@@ -52,6 +57,7 @@ export const postsAPI = {
 export const commentsAPI = {
   getByPost: (postId) => api.get(`/posts/${postId}/comments`),
   create: (postId, content, parent_id = null) => api.post(`/posts/${postId}/comments`, { content, parent_id }),
+  edit: (id, content) => api.put(`/comments/${id}`, { content }),
   delete: (id) => api.delete(`/comments/${id}`),
   like: (id) => api.post(`/comments/${id}/like`),
 };
@@ -93,6 +99,13 @@ export const usersAPI = {
   block: (id) => api.post(`/users/block/${id}`),
   unblock: (id) => api.delete(`/users/block/${id}`),
   getBlocked: () => api.get('/users/blocked'),
+};
+
+// Messages
+export const messagesAPI = {
+  getChat: (userId) => api.get(`/messages/${userId}`),
+  sendMessage: (userId, data) => api.post(`/messages/${userId}`, data),
+  updatePublicKey: (publicKey) => api.put('/messages/public-key', { public_key: publicKey }),
 };
 
 export default api;
