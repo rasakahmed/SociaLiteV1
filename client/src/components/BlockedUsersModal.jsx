@@ -54,7 +54,7 @@ export default function BlockedUsersModal({ onClose }) {
               {blockedUsers.map((user) => (
                 <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Link to={`/profile/${user.id}`} onClick={onClose}>
+                    <Link to={`/@${user.username}`} onClick={onClose}>
                       {user.avatar_url ? (
                         <img src={`http://localhost:5000${user.avatar_url}`} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
@@ -64,7 +64,7 @@ export default function BlockedUsersModal({ onClose }) {
                       )}
                     </Link>
                     <div>
-                      <Link to={`/profile/${user.id}`} onClick={onClose} style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold', display: 'block', fontSize: '14px' }}>
+                      <Link to={`/@${user.username}`} onClick={onClose} style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold', display: 'block', fontSize: '14px' }}>
                         {user.display_name || user.username}
                       </Link>
                       <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>@{user.username}</span>
