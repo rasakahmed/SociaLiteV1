@@ -1,0 +1,400 @@
+/* ═══════════════════════════════════════════════════════
+   YouTube-Style Video Player
+   ═══════════════════════════════════════════════════════ */
+
+.yt-player {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  aspect-ratio: 16 / 9;
+  max-height: 520px;
+}
+
+.yt-player.fullscreen {
+  border-radius: 0;
+  max-height: none;
+  aspect-ratio: unset;
+}
+
+.yt-player-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+
+/* ── Big Center Play ── */
+.yt-big-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.yt-big-play:hover {
+  background: rgba(255, 0, 0, 0.85);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+/* ── Double-Tap Seek Ripple ── */
+.yt-seek-ripple {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 15;
+  animation: seekRippleFade 0.5s ease-out forwards;
+}
+
+.yt-seek-ripple.left {
+  left: 0;
+  border-radius: 0 50% 50% 0;
+  background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.12), transparent 70%);
+}
+
+.yt-seek-ripple.right {
+  right: 0;
+  border-radius: 50% 0 0 50%;
+  background: radial-gradient(circle at 70% 50%, rgba(255, 255, 255, 0.12), transparent 70%);
+}
+
+.yt-seek-ripple span {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes seekRippleFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Seek Indicator ── */
+.yt-seek-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 18;
+  animation: seekPop 0.6s ease-out forwards;
+}
+
+@keyframes seekPop {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+
+/* ── Gradient Overlay ── */
+.yt-gradient-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.yt-player.show-controls .yt-gradient-bottom {
+  opacity: 1;
+}
+
+/* ── Controls Container ── */
+.yt-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 12px 8px;
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.yt-player.show-controls .yt-controls {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Progress Bar ── */
+.yt-progress-container {
+  width: 100%;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.yt-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  position: relative;
+  overflow: visible;
+  transition: height 0.15s ease;
+}
+
+.yt-progress-container:hover .yt-progress-bar {
+  height: 5px;
+}
+
+.yt-progress-buffered {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.yt-progress-played {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff0000;
+  border-radius: 2px;
+  pointer-events: none;
+  transition: width 0.1s linear;
+}
+
+.yt-progress-scrubber {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff0000;
+  transition: transform 0.15s ease;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+.yt-progress-container:hover .yt-progress-scrubber {
+  transform: translateY(-50%) scale(1);
+}
+
+/* ── Controls Row ── */
+.yt-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.yt-controls-left,
+.yt-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Control Buttons ── */
+.yt-ctrl-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.yt-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.yt-ctrl-btn:active {
+  transform: scale(0.9);
+}
+
+.yt-ctrl-btn .spin {
+  animation: spinGear 0.4s ease;
+}
+
+@keyframes spinGear {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(60deg); }
+}
+
+/* ── Volume Group ── */
+.yt-volume-group {
+  display: flex;
+  align-items: center;
+}
+
+.yt-volume-slider-wrapper {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.25s ease;
+}
+
+.yt-volume-slider-wrapper.open {
+  width: 60px;
+}
+
+.yt-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 60px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+}
+
+.yt-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.yt-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Time Label ── */
+.yt-time {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Settings Menu ── */
+.yt-settings-wrapper {
+  position: relative;
+}
+
+.yt-settings-menu {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  background: rgba(28, 28, 28, 0.96);
+  border-radius: 12px;
+  padding: 8px 0;
+  min-width: 160px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  animation: settingsSlideUp 0.2s ease-out;
+}
+
+@keyframes settingsSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.yt-settings-title {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 16px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yt-speed-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.yt-speed-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.yt-speed-option.active {
+  color: #fff;
+  font-weight: 600;
+}
+
+.yt-speed-option.active::before {
+  content: '✓  ';
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .yt-controls-row {
+    gap: 2px;
+  }
+
+  .yt-time {
+    font-size: 10px;
+  }
+
+  .yt-ctrl-btn {
+    padding: 4px;
+  }
+
+  .yt-big-play {
+    width: 56px;
+    height: 40px;
+  }
+
+  .yt-big-play svg {
+    width: 32px;
+    height: 32px;
+  }
+}
