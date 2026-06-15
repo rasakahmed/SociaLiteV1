@@ -7,16 +7,45 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const ensureKeys = async (userObj) => {
+    try {
+      const { generateKeyPair } = await import('../utils/crypto');
+      const { messagesAPI } = await import('../services/api');
+      let priv = localStorage.getItem(`priv_${userObj.id}`);
+      let pub = localStorage.getItem(`pub_${userObj.id}`);
+
+      if (!priv || !pub) {
+        const keys = await generateKeyPair();
+        priv = keys.privateKeyBase64;
+        pub = keys.publicKeyBase64;
+        localStorage.setItem(`priv_${userObj.id}`, priv);
+        localStorage.setItem(`pub_${userObj.id}`, pub);
+      }
+      
+      // Update the server if it doesn't have our pubkey (or just force update it on login)
+      if (!userObj.public_key || userObj.public_key !== pub) {
+        await messagesAPI.updatePublicKey(pub);
+        userObj.public_key = pub;
+        localStorage.setItem('user', JSON.stringify(userObj));
+        setUser({ ...userObj });
+      }
+    } catch (err) {
+      console.error('Key sync error', err);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
       // Verify token is still valid
       authAPI.getMe()
         .then((res) => {
           setUser(res.data.user);
           localStorage.setItem('user', JSON.stringify(res.data.user));
+          ensureKeys(res.data.user);
         })
         .catch(() => {
           localStorage.removeItem('token');
@@ -35,6 +64,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    await ensureKeys(userData);
     return userData;
   }, []);
 
@@ -44,6 +74,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    await ensureKeys(userData);
     return userData;
   }, []);
 
