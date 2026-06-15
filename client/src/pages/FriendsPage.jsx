@@ -1,109 +1,86 @@
 import { useState, useEffect } from 'react';
+import { X, ShieldAlert, Loader } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { UserCheck, UserX, Users, Loader } from 'lucide-react';
-import { friendsAPI } from '../services/api';
-import './FriendsPage.css';
+import { usersAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import './EditPostModal.css'; // Reusing modal-overlay styles
 
-const API_URL = 'http://localhost:5000';
-
-export default function FriendsPage() {
-  const [friends, setFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
+export default function BlockedUsersModal({ onClose }) {
+  const [blockedUsers, setBlockedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('friends');
+  const { toast } = useToast();
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchBlocked = async () => {
       try {
-        const [fRes, rRes] = await Promise.all([
-          friendsAPI.getList(),
-          friendsAPI.getRequests(),
-        ]);
-        setFriends(fRes.data.friends);
-        setRequests(rRes.data.requests);
+        const res = await usersAPI.getBlocked();
+        setBlockedUsers(res.data.blockedUsers);
       } catch (err) {
-        console.error(err);
+        toast.error('Failed to load blocked users');
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchBlocked();
   }, []);
 
-  const handleAccept = async (requestId) => {
+  const handleUnblock = async (id) => {
     try {
-      await friendsAPI.accept(requestId);
-      const accepted = requests.find((r) => r.id === requestId);
-      setRequests(requests.filter((r) => r.id !== requestId));
-      if (accepted?.sender) setFriends([...friends, accepted.sender]);
-    } catch (err) { console.error(err); }
-  };
-
-  const handleReject = async (requestId) => {
-    try {
-      await friendsAPI.reject(requestId);
-      setRequests(requests.filter((r) => r.id !== requestId));
-    } catch (err) { console.error(err); }
+      await usersAPI.unblock(id);
+      setBlockedUsers(blockedUsers.filter(u => u.id !== id));
+      toast.success('User unblocked');
+    } catch (err) {
+      toast.error('Failed to unblock user');
+    }
   };
 
   return (
-    <div className="friends-page">
-      <div className="friends-container">
-        <h2 className="friends-title">Friends</h2>
-
-        <div className="friends-tabs">
-          <button className={`tab-btn ${tab === 'friends' ? 'active' : ''}`} onClick={() => setTab('friends')}>
-            <Users size={16} /> My Friends ({friends.length})
-          </button>
-          <button className={`tab-btn ${tab === 'requests' ? 'active' : ''}`} onClick={() => setTab('requests')}>
-            Requests {requests.length > 0 && <span className="req-badge">{requests.length}</span>}
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><ShieldAlert size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }}/> Blocked Users</h3>
+          <button className="modal-close-btn" onClick={onClose}>
+            <X size={20} />
           </button>
         </div>
 
-        {loading ? (
-          <div className="friends-loading"><Loader size={32} className="spinner" /></div>
-        ) : tab === 'friends' ? (
-          friends.length === 0 ? (
-            <div className="friends-empty"><Users size={40} /><p>No friends yet. Search for people to connect!</p></div>
+        <div className="modal-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {loading ? (
+            <div style={{ padding: '20px', textAlign: 'center' }}><Loader size={24} className="spinner" /></div>
+          ) : blockedUsers.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', padding: '20px' }}>You have no blocked users.</p>
           ) : (
-            <div className="friends-grid">
-              {friends.map((f) => (
-                <Link to={`/profile/${f.id}`} key={f.id} className="friend-card">
-                  {f.avatar_url ? (
-                    <img src={`${API_URL}${f.avatar_url}`} alt="" className="friend-avatar" />
-                  ) : (
-                    <div className="friend-avatar-ph">{(f.display_name || f.username)[0].toUpperCase()}</div>
-                  )}
-                  <span className="friend-name">{f.display_name || f.username}</span>
-                  <span className="friend-uname">@{f.username}</span>
-                </Link>
-              ))}
-            </div>
-          )
-        ) : (
-          requests.length === 0 ? (
-            <div className="friends-empty"><p>No pending requests</p></div>
-          ) : (
-            <div className="requests-list">
-              {requests.map((r) => (
-                <div key={r.id} className="request-card">
-                  <Link to={`/profile/${r.sender.id}`} className="req-user-link">
-                    {r.sender.avatar_url ? (
-                      <img src={`${API_URL}${r.sender.avatar_url}`} alt="" className="req-avatar" />
-                    ) : (
-                      <div className="req-avatar-ph">{(r.sender.display_name || r.sender.username)[0].toUpperCase()}</div>
-                    )}
-                    <div><span className="req-name">{r.sender.display_name || r.sender.username}</span><span className="req-uname">@{r.sender.username}</span></div>
-                  </Link>
-                  <div className="req-actions">
-                    <button className="req-accept" onClick={() => handleAccept(r.id)}><UserCheck size={16} /> Accept</button>
-                    <button className="req-reject" onClick={() => handleReject(r.id)}><UserX size={16} /> Reject</button>
+            <div className="users-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+              {blockedUsers.map((user) => (
+                <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link to={`/@${user.username}`} onClick={onClose}>
+                      {user.avatar_url ? (
+                        <img src={`http://localhost:5000${user.avatar_url}`} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold' }}>
+                          {(user.display_name || user.username)[0].toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
+                    <div>
+                      <Link to={`/@${user.username}`} onClick={onClose} style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold', display: 'block', fontSize: '14px' }}>
+                        {user.display_name || user.username}
+                      </Link>
+                      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>@{user.username}</span>
+                    </div>
                   </div>
+                  <button 
+                    onClick={() => handleUnblock(user.id)}
+                    style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    Unblock
+                  </button>
                 </div>
               ))}
             </div>
-          )
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
